@@ -1,8 +1,4 @@
 {
     "name": "Orionx GitOps",
-    "description": "Orionx GitOps standard workflow.",
-    "iconName": "example-icon",
-    "categories": [
-        "GitOps"
-    ]
+    "description": "Orionx GitOps standard workflow."
 }
