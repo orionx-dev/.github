@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Set image name variables
         run: |
-          echo "IMAGE_NAME=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:${{ env.VERSION }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "IMAGE_REPO=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}" >> $GITHUB_ENV
           echo "IMAGE_LATEST=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:latest" >> $GITHUB_ENV
 
