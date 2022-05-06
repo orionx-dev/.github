@@ -1,0 +1,78 @@
+on:
+  release:
+    types: [created]
+
+name: Build and Push to ECR and commit to GitOps repo [Release]
+
+# https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+env:
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+  AWS_DEFAULT_OUTPUT: json
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  IMAGE_TAG: ${{ github.sha }}
+  GITOPS_REPO: orionx-dev/gitops
+  ## SET THESE VARS
+  ECR_REPOSITORY_NAME: orionx/common-data 
+  CHART_NAME: exchange 
+  DIR_NAME: exchange
+  MICROSERVICE: commondata 
+jobs:
+  build-and-push:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set image name variables
+        run: |
+          echo "IMAGE_NAME=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "IMAGE_REPO=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:latest" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Pull image from ECR
+        run: |
+          docker pull ${IMAGE_LATEST}
+
+      - name: Build and tag the image
+        run: |
+          docker build . \
+            --cache-from ${IMAGE_LATEST} \
+            -t ${IMAGE_NAME} 
+            -t ${IMAGE_LATEST}
+
+      - name: Push image to ECR
+        run: |
+          docker push ${IMAGE_NAME}
+          docker push ${IMAGE_LATEST}
+
+      - name: Check out gitops repo
+        uses: actions/checkout@master
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Change Chart yml version
+        shell: bash
+        run: |
+          sudo snap install yq
+          APP_PATH=$(find . -name ${DIR_NAME}) 
+          yq eval ".\"${CHART_NAME}\".\"${MICROSERVICE}\".image.tag = \"${IMAGE_TAG}\"" -i "${APP_PATH}/application-values.yaml" -v
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Bump ${{ env.SUB_CHART_NAME }} microservice ${{ env.MICROSERVICE }} to ${{ env.IMAGE_TAG }}

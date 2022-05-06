@@ -3,7 +3,7 @@ on:
     branches: # array of glob patterns matching against refs/heads. Optional; defaults to all
       - develop
 
-name: Build and Push to ECR and commit to GitOps repo
+name: Build and Push to ECR and commit to GitOps repo [Develop]
 
 # https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
 env:
@@ -13,11 +13,12 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   IMAGE_TAG: ${{ github.sha }}
+  GITOPS_REPO: orionx-dev/gitops
   ## SET THESE VARS
-  ECR_REPOSITORY_NAME: ECR_REPOSITORY_NAME 
-  CHART_NAME: CHART_NAME 
-  DIR_NAME: DIR_NAME 
-  MICROSERVICE: MICROSERVICE 
+  ECR_REPOSITORY_NAME: orionx/common-data 
+  CHART_NAME: exchange 
+  DIR_NAME: exchange-dev 
+  MICROSERVICE: commondata 
 jobs:
   build-and-push:
     name: Build and deploy
@@ -25,7 +26,7 @@ jobs:
     steps:
       - name: Set image name variables
         run: |
-          echo "IMAGE_NAME=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:${{ env.VERSION }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "IMAGE_REPO=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}" >> $GITHUB_ENV
           echo "IMAGE_LATEST=${{ env.AWS_ACCOUNT_ID}}.dkr.ecr.${{ env.AWS_DEFAULT_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY_NAME }}:latest" >> $GITHUB_ENV
 
@@ -47,12 +48,12 @@ jobs:
       - name: Pull image from ECR
         run: |
           docker pull ${IMAGE_LATEST}
+
       - name: Build and tag the image
         run: |
           docker build . \
             --cache-from ${IMAGE_LATEST} \
-            -t ${IMAGE_NAME} \
-            -t ${IMAGE_LATEST}
+            -t ${IMAGE_NAME} 
 
       - name: Push image to ECR
         run: |
@@ -61,7 +62,7 @@ jobs:
       - name: Check out gitops repo
         uses: actions/checkout@master
         with:
-          repository: ${{ secrets.GITOPS_REPO }}
+          repository: ${{ env.GITOPS_REPO }}
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Change Chart yml version
@@ -69,7 +70,7 @@ jobs:
         run: |
           sudo snap install yq
           APP_PATH=$(find . -name ${DIR_NAME}) 
-          yq eval ".\"${CHART_NAME}\".\"${MICROSERVICE}\".image.tag = \"${IMAGE_TAG}\"" -i "\"${APP_PATH}\"/application-values.yaml" -v
+          yq eval ".\"${CHART_NAME}\".\"${MICROSERVICE}\".image.tag = \"${IMAGE_TAG}\"" -i "${APP_PATH}/application-values.yaml" -v
 
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
